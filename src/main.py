@@ -16,6 +16,7 @@ from .pipeline.step3_scoring import run_step3_scoring
 from .pipeline.step4_title import run_step4_title
 from .pipeline.step5_clustering import run_step5_clustering
 from .pipeline.step6_video import run_step6_video
+from .pipeline.step7_script import run_step7_script
 from .config import get_prompt_files
 
 # 配置日志
@@ -118,12 +119,12 @@ class AutoClipsProcessor:
             
             logger.info(f"✅ Step 1 完成，提取到 {len(outlines)} 个话题")
             if progress_callback:
-                progress_callback(1, 6, "大纲提取完成", 16.7)
+                progress_callback(1, 7, "大纲提取完成", 14.3)
             
             # Step 2: 时间点提取
             logger.info("⏰ Step 2: 提取时间区间")
             if progress_callback:
-                progress_callback(2, 6, "提取时间区间", 16.7)
+                progress_callback(2, 7, "提取时间区间", 14.3)
             
             timeline_data = run_step2_timeline(
                 self.paths["metadata_dir"] / "step1_outline.json",
@@ -142,7 +143,7 @@ class AutoClipsProcessor:
             # Step 3: 内容评分
             logger.info("🔥 Step 3: 内容评分与筛选")
             if progress_callback:
-                progress_callback(3, 6, "内容评分与筛选", 33.3)
+                progress_callback(3, 7, "内容评分与筛选", 28.6)
             
             high_score_clips = run_step3_scoring(
                 self.paths["metadata_dir"] / "step2_timeline.json",
@@ -161,7 +162,7 @@ class AutoClipsProcessor:
             # Step 4: 标题生成
             logger.info("📝 Step 4: 生成爆点标题")
             if progress_callback:
-                progress_callback(4, 6, "生成爆点标题", 50.0)
+                progress_callback(4, 7, "生成爆点标题", 42.9)
             
             clips_with_titles = run_step4_title(
                 self.paths["metadata_dir"] / "step3_high_score_clips.json",
@@ -181,7 +182,7 @@ class AutoClipsProcessor:
             # Step 5: 主题聚类
             logger.info("📦 Step 5: 主题聚类成合集")
             if progress_callback:
-                progress_callback(5, 6, "主题聚类成合集", 66.7)
+                progress_callback(5, 7, "主题聚类成合集", 57.1)
             
             collections_data = run_step5_clustering(
                 self.paths["metadata_dir"] / "step4_titles.json",
@@ -201,7 +202,7 @@ class AutoClipsProcessor:
             # Step 6: 视频切割
             logger.info("✂️ Step 6: 生成切片与合集视频")
             if progress_callback:
-                progress_callback(6, 6, "生成切片与合集视频", 83.3)
+                progress_callback(6, 7, "生成切片与合集视频", 71.4)
             
             video_result = run_step6_video(
                 self.paths["metadata_dir"] / "step4_titles.json",
@@ -219,7 +220,27 @@ class AutoClipsProcessor:
             
             logger.info(f"✅ Step 6 完成，生成 {video_result['clips_generated']} 个切片，{video_result['collections_generated']} 个合集")
             if progress_callback:
-                progress_callback(6, 6, "视频生成完成", 100.0)
+                progress_callback(6, 7, "视频生成完成", 85.7)
+            
+            # Step 7: 解说文稿生成
+            logger.info("📝 Step 7: 生成解说文稿")
+            if progress_callback:
+                progress_callback(7, 7, "生成解说文稿", 85.7)
+            
+            scripts_result = run_step7_script(
+                self.paths["metadata_dir"] / "step4_titles.json",
+                output_path=None,
+                metadata_dir=str(self.paths["metadata_dir"]),
+                prompt_files=self.prompt_files
+            )
+            self.results['step7_scripts'] = scripts_result
+            
+            # 保存步骤结果
+            project_manager.save_processing_result(self.project_id, 7, {"scripts": scripts_result})
+            
+            logger.info(f"✅ Step 7 完成，为 {len(scripts_result)} 个片段生成了解说文稿")
+            if progress_callback:
+                progress_callback(7, 7, "解说文稿生成完成", 100.0)
             
             # 保存完整结果
             self._save_final_results()
@@ -227,7 +248,7 @@ class AutoClipsProcessor:
             # 更新项目状态为完成
             project_manager.update_project_metadata(self.project_id, {
                 "status": "completed",
-                "current_step": 6,
+                "current_step": 7,
                 "completed_at": datetime.now().isoformat()
             })
             
@@ -251,7 +272,7 @@ class AutoClipsProcessor:
         运行单个步骤
         
         Args:
-            step: 步骤编号 (1-6)
+            step: 步骤编号 (1-7)
             **kwargs: 步骤特定参数
             
         Returns:
@@ -307,6 +328,13 @@ class AutoClipsProcessor:
                     clips_dir=str(self.paths["clips_dir"]),
                     collections_dir=str(self.paths["collections_dir"]),
                     metadata_dir=str(self.paths["metadata_dir"])
+                )
+            elif step == 7:
+                result = run_step7_script(
+                    self.paths["metadata_dir"] / "step4_titles.json",
+                    output_path=None,
+                    metadata_dir=str(self.paths["metadata_dir"]),
+                    prompt_files=self.prompt_files
                 )
             else:
                 raise ValueError(f"无效的步骤编号: {step}")
@@ -367,7 +395,7 @@ class AutoClipsProcessor:
             已完成的步骤编号列表
         """
         completed_steps = []
-        for step in range(1, 7):
+        for step in range(1, 8):
             if self.check_step_completion(step):
                 completed_steps.append(step)
         return completed_steps
@@ -377,7 +405,7 @@ class AutoClipsProcessor:
         从指定步骤开始运行处理流水线
         
         Args:
-            start_step: 开始步骤编号 (1-6)
+            start_step: 开始步骤编号 (1-7)
             progress_callback: 进度回调函数
             
         Returns:
@@ -400,13 +428,13 @@ class AutoClipsProcessor:
                 raise ValueError("视频文件或字幕文件不存在")
             
             # 从指定步骤开始执行
-            for step in range(start_step, 7):
-                step_progress = ((step - 1) / 6) * 100
+            for step in range(start_step, 8):
+                step_progress = ((step - 1) / 7) * 100
                 
                 if step == 1:
                     logger.info("📖 Step 1: 提取视频大纲")
                     if progress_callback:
-                        progress_callback(1, 6, "提取视频大纲", step_progress)
+                        progress_callback(1, 7, "提取视频大纲", step_progress)
                     
                     outlines = run_step1_outline(input_srt, self.paths["metadata_dir"])
                     self.results['step1_outlines'] = outlines
@@ -414,12 +442,12 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 1 完成，提取到 {len(outlines)} 个话题")
                     if progress_callback:
-                        progress_callback(1, 6, "大纲提取完成", 16.7)
+                        progress_callback(1, 7, "大纲提取完成", 14.3)
                 
                 elif step == 2:
                     logger.info("⏰ Step 2: 提取时间区间")
                     if progress_callback:
-                        progress_callback(2, 6, "提取时间区间", step_progress)
+                        progress_callback(2, 7, "提取时间区间", step_progress)
                     
                     timeline_data = run_step2_timeline(
                     self.paths["metadata_dir"] / "step1_outline.json",
@@ -431,12 +459,12 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 2 完成，定位到 {len(timeline_data)} 个时间区间")
                     if progress_callback:
-                        progress_callback(2, 6, "时间定位完成", 33.3)
+                        progress_callback(2, 7, "时间定位完成", 28.6)
                 
                 elif step == 3:
                     logger.info("🔥 Step 3: 内容评分与筛选")
                     if progress_callback:
-                        progress_callback(3, 6, "内容评分与筛选", step_progress)
+                        progress_callback(3, 7, "内容评分与筛选", step_progress)
                     
                     high_score_clips = run_step3_scoring(
                     self.paths["metadata_dir"] / "step2_timeline.json",
@@ -448,12 +476,12 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 3 完成，筛选出 {len(high_score_clips)} 个高分片段")
                     if progress_callback:
-                        progress_callback(3, 6, "内容评分完成", 50.0)
+                        progress_callback(3, 7, "内容评分完成", 42.9)
                 
                 elif step == 4:
                     logger.info("📝 Step 4: 生成爆点标题")
                     if progress_callback:
-                        progress_callback(4, 6, "生成爆点标题", step_progress)
+                        progress_callback(4, 7, "生成爆点标题", step_progress)
                     
                     clips_with_titles = run_step4_title(
                         self.paths["metadata_dir"] / "step3_high_score_clips.json",
@@ -466,12 +494,12 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 4 完成，为 {len(clips_with_titles)} 个片段生成标题")
                     if progress_callback:
-                        progress_callback(4, 6, "标题生成完成", 66.7)
+                        progress_callback(4, 7, "标题生成完成", 57.1)
                 
                 elif step == 5:
                     logger.info("📦 Step 5: 主题聚类成合集")
                     if progress_callback:
-                        progress_callback(5, 6, "主题聚类成合集", step_progress)
+                        progress_callback(5, 7, "主题聚类成合集", step_progress)
                     
                     collections_data = run_step5_clustering(
                         self.paths["metadata_dir"] / "step4_titles.json",
@@ -484,12 +512,12 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 5 完成，生成 {len(collections_data)} 个合集")
                     if progress_callback:
-                        progress_callback(5, 6, "主题聚类完成", 83.3)
+                        progress_callback(5, 7, "主题聚类完成", 71.4)
                 
                 elif step == 6:
                     logger.info("✂️ Step 6: 生成切片与合集视频")
                     if progress_callback:
-                        progress_callback(6, 6, "生成切片与合集视频", step_progress)
+                        progress_callback(6, 7, "生成切片与合集视频", step_progress)
                     
                     video_result = run_step6_video(
                         self.paths["metadata_dir"] / "step4_titles.json",
@@ -505,7 +533,25 @@ class AutoClipsProcessor:
                     
                     logger.info(f"✅ Step 6 完成，生成 {video_result['clips_generated']} 个切片，{video_result['collections_generated']} 个合集")
                     if progress_callback:
-                        progress_callback(6, 6, "视频生成完成", 100.0)
+                        progress_callback(6, 7, "视频生成完成", 85.7)
+                
+                elif step == 7:
+                    logger.info("📝 Step 7: 生成解说文稿")
+                    if progress_callback:
+                        progress_callback(7, 7, "生成解说文稿", step_progress)
+                    
+                    scripts_result = run_step7_script(
+                        self.paths["metadata_dir"] / "step4_titles.json",
+                        output_path=None,
+                        metadata_dir=str(self.paths["metadata_dir"]),
+                        prompt_files=self.prompt_files
+                    )
+                    self.results['step7_scripts'] = scripts_result
+                    project_manager.save_processing_result(self.project_id, 7, {"scripts": scripts_result})
+                    
+                    logger.info(f"✅ Step 7 完成，为 {len(scripts_result)} 个片段生成了解说文稿")
+                    if progress_callback:
+                        progress_callback(7, 7, "解说文稿生成完成", 100.0)
             
             # 保存完整结果
             self._save_final_results()
@@ -513,7 +559,7 @@ class AutoClipsProcessor:
             # 更新项目状态为完成
             project_manager.update_project_metadata(self.project_id, {
                 "status": "completed",
-                "current_step": 6,
+                "current_step": 7,
                 "completed_at": datetime.now().isoformat()
             })
             
