@@ -104,7 +104,8 @@ class VideoProcessor:
                 '-i', str(input_video),
                 '-t', str(duration),  # 使用持续时间而不是绝对结束时间
                 '-c:v', 'copy',  # 复制视频流
-                '-c:a', 'copy',  # 复制音频流
+                '-c:a', 'aac',  # 转换为AAC音频格式，提高兼容性
+                '-b:a', '192k',  # 音频比特率
                 '-avoid_negative_ts', 'make_zero',
                 '-y',  # 覆盖输出文件
                 str(output_path)

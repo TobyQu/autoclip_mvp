@@ -186,29 +186,38 @@ class TextProcessor:
             logger.warning(f"SRT文件为空: {srt_path}")
             return []
 
-        try:
+        # 尝试多种编码格式
+        encodings = ['utf-8', 'utf-8-sig', 'gbk', 'gb2312', 'big5', 'latin-1', 'cp1252']
+        
+        for encoding in encodings:
             try:
-                subs = pysrt.open(str(srt_path), encoding='utf-8')
+                logger.info(f"尝试使用 {encoding} 编码解析SRT文件...")
+                subs = pysrt.open(str(srt_path), encoding=encoding)
+                
+                subtitles = []
+                for sub in subs:
+                    subtitles.append({
+                        'start_time': str(sub.start),
+                        'end_time': str(sub.end),
+                        'text': sub.text.strip(),
+                        'index': sub.index
+                    })
+
+                if subtitles:
+                    logger.info(f"成功使用 {encoding} 编码解析SRT文件，共 {len(subtitles)} 条字幕")
+                    return subtitles
+                else:
+                    logger.warning(f"使用 {encoding} 编码成功打开SRT文件但未能解析出任何字幕内容")
+                    
             except UnicodeDecodeError:
-                logger.warning("UTF-8解码失败，尝试使用 utf-8-sig...")
-                subs = pysrt.open(str(srt_path), encoding='utf-8-sig')
-
-            subtitles = []
-            for sub in subs:
-                subtitles.append({
-                    'start_time': str(sub.start),
-                    'end_time': str(sub.end),
-                    'text': sub.text.strip(),
-                    'index': sub.index
-                })
-
-            if not subtitles:
-                logger.warning(f"成功打开SRT文件但未能解析出任何字幕内容: {srt_path}")
-            
-            return subtitles
-        except Exception as e:
-            logger.error(f"使用pysrt解析SRT文件'{srt_path}'时发生未知错误: {e}", exc_info=True)
-            return []
+                logger.warning(f"使用 {encoding} 编码解析失败，尝试下一种编码...")
+                continue
+            except Exception as e:
+                logger.warning(f"使用 {encoding} 编码解析时发生错误: {e}")
+                continue
+        
+        logger.error(f"所有编码格式都无法解析SRT文件: {srt_path}")
+        return []
     
     @staticmethod
     def extract_text_by_time_range(text: str, srt_data: List[Dict], 

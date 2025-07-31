@@ -227,23 +227,54 @@ class ProjectManager:
         project_base = paths["project_base"]
         input_dir = paths["input_dir"]
         
-        # 检查两个可能的位置：input子目录和项目根目录
-        file_names = ["input.mp4", "input.srt", "input.txt"]
-        file_keys = ["video_file", "srt_file", "txt_file"]
+        # 支持的视频格式
+        video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"]
         
         files = {}
-        for key, name in zip(file_keys, file_names):
-            # 优先检查input子目录
-            input_path = input_dir / name
-            if input_path.exists():
-                files[key] = input_path
-            else:
-                # 检查项目根目录
-                root_path = project_base / name
-                if root_path.exists():
-                    files[key] = root_path
-                else:
-                    files[key] = None
+        
+        # 查找视频文件
+        video_file = None
+        for ext in video_extensions:
+            video_path = input_dir / f"input{ext}"
+            if video_path.exists():
+                video_file = video_path
+                break
+        
+        if not video_file:
+            # 检查项目根目录
+            for ext in video_extensions:
+                video_path = project_base / f"input{ext}"
+                if video_path.exists():
+                    video_file = video_path
+                    break
+        
+        files["video_file"] = video_file
+        
+        # 查找字幕文件
+        srt_file = None
+        srt_path = input_dir / "input.srt"
+        if srt_path.exists():
+            srt_file = srt_path
+        else:
+            # 检查项目根目录
+            srt_path = project_base / "input.srt"
+            if srt_path.exists():
+                srt_file = srt_path
+        
+        files["srt_file"] = srt_file
+        
+        # 查找文本文件（可选）
+        txt_file = None
+        txt_path = input_dir / "input.txt"
+        if txt_path.exists():
+            txt_file = txt_path
+        else:
+            # 检查项目根目录
+            txt_path = project_base / "input.txt"
+            if txt_path.exists():
+                txt_file = txt_path
+        
+        files["txt_file"] = txt_file
         
         return files
     
